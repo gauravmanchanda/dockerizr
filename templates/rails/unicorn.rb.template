@@ -1,0 +1,46 @@
+worker_processes Integer(ENV.fetch('UNICORN_WORKERS') { 2 })
+timeout Integer(ENV.fetch('REQUEST_MAX_TIMEOUT') { 60 })
+
+# This loads the application in the master process before forking
+# worker processes
+# Read more about it here:
+# http://unicorn.bogomips.org/Unicorn/Configurator.html
+preload_app true
+
+working_directory ENV.fetch('APP_HOME')
+
+# pid "#{ ENV.fetch('APP_HOME') }/tmp/pids/unicorn.pid"
+
+listen Integer(ENV.fetch('APP_PORT') { 3000 })
+
+before_fork do |server, worker|
+  # This option works in together with preload_app true setting
+  # What is does is prevent the master process from holding
+  # the database connection
+  # https://gist.github.com/bradherman/7acbfbda1f065b20d4fc
+
+  Signal.trap 'TERM' do
+    puts 'Unicorn master intercepting TERM and sending myself QUIT instead'
+    Process.kill 'QUIT', Process.pid
+  end
+
+  defined?(ActiveRecord::Base) and ActiveRecord::Base.connection.disconnect!
+
+  old_pid = "#{server.config[:pid]}.oldbin"
+  if old_pid != server.pid
+    begin
+      sig = (worker.nr + 1) >= server.worker_processes ? :QUIT : :TTOU
+      Process.kill(sig, File.read(old_pid).to_i)
+    rescue Errno::ENOENT, Errno::ESRCH
+    end
+  end
+end
+
+after_fork do |server, worker|
+
+  Signal.trap 'TERM' do
+    puts 'Unicorn worker intercepting TERM and doing nothing. Wait for master to sent QUIT'
+  end
+
+  defined?(ActiveRecord::Base) and ActiveRecord::Base.establish_connection
+end

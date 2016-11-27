@@ -1,0 +1,23 @@
+FROM ruby:<rubyVersion>
+
+ENV APP_HOME /app
+ENV RAILS_ENV production
+ENV APP_PORT <appPort>
+ENV DB_HOST postgres
+ENV DB_USER postgres
+ENV DB_PASSWORD postgres
+
+WORKDIR $APP_HOME
+
+ADD vendor $APP_HOME/vendor
+ADD Gemfile* $APP_HOME/
+
+RUN bundle install --without development test doc external
+
+ADD . $APP_HOME
+
+EXPOSE $APP_PORT
+
+RUN cp database.yml config/database.yml
+
+CMD ["bundle", "exec", "unicorn", "-c", "unicorn.rb"]

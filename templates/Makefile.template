@@ -1,0 +1,20 @@
+# Makefile for Docker builds in CircleCI
+SHELL := /bin/bash
+
+IMAGE_VERSION := $(shell cat VERSION)
+IMAGE_TAG_START := <serviceName>
+IMAGE_TAG := $(IMAGE_TAG_START):$(IMAGE_VERSION)
+IMAGE_LATEST := $(IMAGE_TAG_START):latest
+
+.PHONY: build test
+
+build:
+	docker build -t $(IMAGE_TAG) \
+		--build-arg "version=$(IMAGE_VERSION)" \
+		--build-arg "tag=$(IMAGE_TAG)"
+		.
+	docker tag $(IMAGE_TAG) $(IMAGE_LATEST)
+
+test:
+	make build
+	echo "Run your tests here!!"
